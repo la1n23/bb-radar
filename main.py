@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import sqlite3
+from tabulate import tabulate
 import time
 import schedule
 import telebot
@@ -10,51 +10,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-WEBSITE_URL = os.getenv("WEBSITE_URL")
-DB_NAME = os.getenv("DB_NAME", "scraped_data.db")
+WEBSITE_URL = os.getenv("WEBSITE_URL", "https://bbradar.io")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_USER_ID = os.getenv("TELEGRAM_USER_ID")
 CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL_MINUTES", "30"))
+ANEW = os.getenv("ANEW", "~/go/bin/anew")
 
 PLATFORMS = {
     'hackerone': 'hackerone',
     'remedy': 'remedy',
-    'yeswehack': 'yeswehack'
+    'yeswehack': 'yeswehack',
+    'immunefi': 'immunefi',
+    'c4r': 'code4rena',
+    'Logotype.D9ur76GB.png': 'HackenProof',
+    'bugbase': 'bugbase',
+    'intigriti': 'intigriti'
 }
 
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(f"""
-        CREATE TABLE IF NOT EXISTS bb_progs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TIMESTAMP,
-            title TEXT UNIQUE,
-            platform TEXT,
-            type TEXT,
-            link TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-def create_if_new(row: tuple):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    try:
-        cursor.execute(f"""
-            INSERT INTO bb_progs (date, title, platform, type, link) VALUES (?, ?, ?, ?, ?)
-        """, row)
-        conn.commit()
-        conn.close()
-        return True
-    except sqlite3.IntegrityError as e:
-        conn.close()
-        return False
 
 def scrape_website() -> list[tuple]:
     try:
@@ -81,29 +55,23 @@ def scrape_website() -> list[tuple]:
 
                 row = (date, title, platform, bb_type, link)
                 rows.append(row)
-        rows.sort(key=lambda x: x[0])
-        #rows.append(
-        #    (datetime.strptime("2025-01-02 20:00", "%Y-%m-%d %H:%M"), 'TEST', 'https://bbradar.io/wp-content/uploads/2023/04/c4r-logo.png', 'smart contract', 'https://code4rena.com/audits/2025-04-bitvault')
-        #)
+        rows.sort(key=lambda x: x[0], reverse=True)
         return rows
 
     except Exception as e:
         print(f"Error fetching data: {e}")
         return []
 
-def save_new_items(rows: list[tuple]):
-    new_items = []
-    for row in rows:
-        item = create_if_new(row)
-        if item:
-            new_items.append(row)
-    return new_items
-
 def notify_telegram(new_items):
     if not new_items:
         return
-        
-    message = f"New items found at {datetime.now()}:\n\n" + "\n\n".join(list(new_items))
+    message = ''
+    for row in new_items:
+        message += f"{row[1]} - {row[0]}\n"
+        message += f"{row[2]} - {row[3]}\n"
+        message += f"{row[4]}"
+        message += "------------------------\n"
+
     try:
         bot.send_message(TELEGRAM_USER_ID, message)
     except Exception as e:
@@ -112,11 +80,24 @@ def notify_telegram(new_items):
 def job():
     print(f"Running job at {datetime.now()}")
     rows = scrape_website()
-    created_rows = save_new_items(rows)
-    new_items = [" | ".join([str(item) for item in row]) for row in created_rows]
-    print('new', new_items)
-    if new_items:
-        notify_telegram(new_items)
+    new_items = [[str(item) for item in row] for row in rows]
+    with open("bb_new.txt", 'w') as f:
+        for item in new_items:
+            f.write("|".join(item))
+            f.write("\n")
+    
+    os.system(f"cat bb_new.txt | {ANEW} bb.txt > /tmp/bb_diff.txt")
+    diff = []
+    with open('/tmp/bb_diff.txt') as f:
+        diff = f.readlines()
+        diff = [row.split("|") for row in diff]
+
+    if diff:
+        print(tabulate(diff, tablefmt='plain'))
+        os.system("mv bb_new.txt bb.txt") 
+        notify_telegram(diff)
+    else:
+        print(f"No new items {datetime.now()}")
 
 def run_scheduler():
     schedule.every(CHECK_INTERVAL_MINUTES).minutes.do(job)
@@ -125,6 +106,5 @@ def run_scheduler():
         time.sleep(1)
 
 if __name__ == "__main__":
-    init_db()
     job()
     run_scheduler()
