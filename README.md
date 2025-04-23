@@ -11,3 +11,11 @@ go install -v github.com/tomnomnom/anew@latest
 cp .env.example .env
 python main.py
 ```
+## systemd
+```bash
+sudo cp bb-radar.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start bb-radar.service
+sudo systemctl status bb-radar.service
+sudo systemctl enable bb-radar.service
+```
