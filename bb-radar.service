@@ -1,0 +1,14 @@
+[Unit]
+Description=BB Radar Service
+After=network.target
+
+[Service]
+Type=simple
+User=lain
+WorkingDirectory=/home/lain/bb-radar
+ExecStart=/usr/bin/python /home/lain/bb-radar/main.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
