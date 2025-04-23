@@ -10,6 +10,7 @@ ExecStart=/home/lain/bb-radar/start.sh
 Restart=on-failure
 StandardOutput=journal
 StandardError=journal
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
