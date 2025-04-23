@@ -6,8 +6,10 @@ After=network.target
 Type=simple
 User=lain
 WorkingDirectory=/home/lain/bb-radar
-ExecStart=/home/lain/start.sh
+ExecStart=/home/lain/bb-radar/start.sh
 Restart=on-failure
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
