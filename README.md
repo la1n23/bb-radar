@@ -5,6 +5,8 @@
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 go install -v github.com/tomnomnom/anew@latest
+
+sudo apt install chromium-driver
 ```
 ## Running
 ```bash
