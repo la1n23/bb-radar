@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=lain
 WorkingDirectory=/home/lain/bb-radar
-ExecStart=/usr/bin/python3 /home/lain/bb-radar/main.py
+ExecStart=./start.sh
 Restart=on-failure
 
 [Install]
