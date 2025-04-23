@@ -115,8 +115,8 @@ def job():
         print(tabulate(diff, tablefmt='plain'))
         os.system(f"mv {DATA_DIR}/bb_new.txt {DATA_DIR}/bb.txt") 
         half = len(diff)//2
-        notify_telegram(diff[half:])
         notify_telegram(diff[:half])
+        notify_telegram(diff[half:])
     else:
         print(f"No new items {datetime.now()}")
 
