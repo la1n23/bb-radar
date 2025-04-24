@@ -16,7 +16,6 @@ WEBSITE_URL = os.getenv("WEBSITE_URL", "https://bbradar.io")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_USER_ID = os.getenv("TELEGRAM_USER_ID")
 CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL_MINUTES", "30"))
-ANEW = os.getenv("ANEW", "~/go/bin/anew")
 DATA_DIR = os.getcwd() + "/data"
 
 PLATFORMS = {
@@ -105,7 +104,16 @@ def job():
             f.write("|".join(item))
             f.write("\n")
     
-    os.system(f"cat {DATA_DIR}/bb_new.txt | {ANEW} {DATA_DIR}/bb.txt > /tmp/bb_diff.txt")
+    open(f'{DATA_DIR}/bb.txt', 'a').close()
+
+    import subprocess
+    print(f"Executing: diff {DATA_DIR}/bb.txt {DATA_DIR}/bb_new.txt | sed '1d' | cut -c3- > /tmp/bb_diff.txt")
+    bb_new = subprocess.run(["cat",f"{DATA_DIR}/bb_new.txt"])
+    bb     = subprocess.run(["cat",f"{DATA_DIR}/bb.txt"])
+    print(f"Files: bb_new.txt\n{bb_new}")
+    print(f"Files: bb.txt\n{bb}")
+
+    os.system(f"diff {DATA_DIR}/bb.txt {DATA_DIR}/bb_new.txt | sed '1d' | cut -c3- > /tmp/bb_diff.txt")
     diff = []
     with open('/tmp/bb_diff.txt') as f:
         diff = f.readlines()
