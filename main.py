@@ -9,6 +9,7 @@ import schedule
 import telebot
 from datetime import datetime
 from dotenv import load_dotenv
+import sqlite3
 
 load_dotenv()
 
@@ -30,12 +31,40 @@ PLATFORMS = {
     'standoff365': 'standoff365'
 }
 
+conn = sqlite3.connect('links.db')
+cursor = conn.cursor()
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
+def init_db():
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT,
+                title TEXT,
+                platform TEXT,
+                bb_type TEXT,
+                link TEXT
+            )
+        ''')
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        pass
+
+def get_diff(rows):
+    diff = []
+    for row in rows:
+        cursor.execute('SELECT * FROM links WHERE link = ?', (row[4],))
+        existing_row = cursor.fetchone()
+        if existing_row is None:
+            diff.append(row)
+            cursor.execute('INSERT INTO links (date, title, platform, bb_type, link) VALUES (?, ?, ?, ?, ?)', row)
+            conn.commit()
+    return diff
+
 def scrape_website() -> list[tuple]:
     try:
-
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -87,7 +116,7 @@ def notify_telegram(new_items):
     for row in new_items:
         message += f"{row[1]} - {row[0]}\n"
         message += f"{row[2]} - {row[3]}\n"
-        message += f"{row[4]}"
+        message += f"{row[4]}\n"
         message += "------------------------\n"
 
     try:
@@ -99,29 +128,12 @@ def job():
     print(f"Running job at {datetime.now()}")
     rows = scrape_website()
     new_items = [[str(item) for item in row] for row in rows]
-    with open(f"{DATA_DIR}/bb_new.txt", 'w') as f:
-        for item in new_items:
-            f.write("|".join(item))
-            f.write("\n")
-    
-    open(f'{DATA_DIR}/bb.txt', 'a').close()
 
-    import subprocess
-    print(f"Executing: diff {DATA_DIR}/bb.txt {DATA_DIR}/bb_new.txt | sed '1d' | cut -c3- > /tmp/bb_diff.txt")
-    bb_new = subprocess.run(["cat",f"{DATA_DIR}/bb_new.txt"])
-    bb     = subprocess.run(["cat",f"{DATA_DIR}/bb.txt"])
-    print(f"Files: bb_new.txt\n{bb_new}")
-    print(f"Files: bb.txt\n{bb}")
-
-    os.system(f"diff {DATA_DIR}/bb.txt {DATA_DIR}/bb_new.txt | sed '1d' | cut -c3- > /tmp/bb_diff.txt")
-    diff = []
-    with open('/tmp/bb_diff.txt') as f:
-        diff = f.readlines()
-        diff = [row.split("|") for row in diff]
+    diff = get_diff(new_items)
 
     if diff:
         print(tabulate(diff, tablefmt='plain'))
-        os.system(f"mv {DATA_DIR}/bb_new.txt {DATA_DIR}/bb.txt") 
+
         half = len(diff)//2
         notify_telegram(diff[:half])
         notify_telegram(diff[half:])
@@ -135,5 +147,6 @@ def run_scheduler():
         time.sleep(1)
 
 if __name__ == "__main__":
+    init_db()
     job()
     run_scheduler()
